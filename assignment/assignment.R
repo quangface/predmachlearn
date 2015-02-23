@@ -22,4 +22,28 @@ head(PMLtrain2)
 PMLtrain.final <- PMLtrain2[,-(1:7)]
 PMLtest.final <- PMLtest2[,-(1:7)]
 
+set.seed(703)
+PMLtraining <- createDataPartition(PMLtrain.final$classe, p = 0.8, list = FALSE)
+PMLtrain.set <- PMLtrain.final[PMLtraining, ]
+PMLtrain.validation <- PMLtrain.final[-PMLtraining, ]
+# build the prediction model
+PML.model <- randomForest(classe ~ ., data = PMLtrain.set)
+
+PML.model
+
+PMLvalidate <- predict(PML.model, PMLtrain.validation)
+confusionMatrix(PMLvalidate,PMLtrain.validation$classe)
+
+PMLpredict <- predict(PML.model, PMLtest.final)
+PMLpredict
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(PMLpredict)
 

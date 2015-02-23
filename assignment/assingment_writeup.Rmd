@@ -24,16 +24,100 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
 
 
+# Cleaning and Processing Data
 
+I will need to use these libraries for this assignment.
 
 ```{r}
-summary(cars)
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(lattice)
 ```
 
-You can also embed plots, for example:
+Now that that's out of the way, let's download the data from the links above and pull it into R.
 
-```{r, echo=FALSE}
-plot(cars)
+```{r}
+download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+              destfile = "./PML_TRAIN.csv")
+download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+              destfile = "./PML_TEST.csv")
+PMLtrain1 <- read.csv("PML_TRAIN.csv", na.strings=c("","NA","#DIV/0"))
+PMLtest1 <- read.csv("PML_TEST.csv", na.string=c("","NA", "#DIV/0")) 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We now have both sets to train and test with. But upon further review of the data, there are a whole lot of N/A's. I decided to remove any columns in this data that had a lot of NAs.
+
+```{r}
+clean <- colSums(is.na(PMLtrain1)) == 0
+PMLtrain2 <- PMLtrain1[,clean]
+PMLtest2 <- PMLtest1[,clean]
+```
+
+We're almost there! I also noticed the first 7 columns were not helpful in analyzing this data at all. Things like date, time, name, etc that would not be necessary to keep.
+
+```{r}
+head(PMLtrain2)
+
+PMLtrain.final <- PMLtrain2[,-(1:7)]
+PMLtest.final <- PMLtest2[,-(1:7)]
+```
+
+Ok, I'm very confident in this data now. Let's move on to the modeling
+
+# Creating the Model
+
+First, obviously we have to divide the data into a training and test set. I went with 80% training and 20% testing.
+
+```{r}
+set.seed(703)
+PMLtraining <- createDataPartition(PMLtrain.final$classe, p = 0.8, list = FALSE)
+
+PMLtrain.set <- PMLtrain.final[PMLtraining, ]
+PMLtrain.validation <- PMLtrain.final[-PMLtraining, ]
+
+```
+
+Now that both sets of data are divided, I'm going to start building the data thanks to the randomForest library
+
+```{r}
+PML.model <- randomForest(classe ~ ., data = PMLtrain.set)
+PML.model
+```
+
+This is the best model of all time. My Estimate of error is only 0.5%!
+
+# Cross Validating our Test Set
+
+Now I'm going to see how the trained model works on the test group we withheld. 
+
+```{r}
+PMLvalidate <- predict(PML.model, PMLtrain.validation)
+confusionMatrix(PMLvalidate,PMLtrain.validation$classe)
+
+```
+
+Wow the accuracy is 99.64%! Time to test it on the test PML data set we grabbed earlier.
+
+# Applying the Model on Test Data
+
+```{r}
+PMLpredict <- predict(PML.model, PMLtest.final)
+PMLpredict
+```
+
+We have our answers. Now to use the given function to write out each answer to a text file.
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(PMLpredict)
+```
+
+And finally.... after submitting our answers online. We got 20/20 correct! Great work gang!
